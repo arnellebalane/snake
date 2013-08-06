@@ -1,6 +1,20 @@
 var canvas = document.getElementById("canvas");
 var context = canvas.getContext("2d");
 
+var human = {
+  initialize: function() {
+    human.controls();
+  },
+  controls: function() {
+    document.onkeydown = function(e) {
+      var directions = ["left", "up", "right", "down"];
+      if (e.keyCode >= 37 && e.keyCode <= 40) {
+        game.snake.changeDirection(directions[e.keyCode - 37]);
+      }
+    }
+  }
+};
+
 var game = {
   grid: new Grid(20),
   snake: null,
@@ -9,7 +23,6 @@ var game = {
     game.readyCanvas();
     game.readySnake();
     game.readyFood();
-    game.controls();
   },
   readyCanvas: function() {
     var world = document.getElementById("world");
@@ -34,14 +47,6 @@ var game = {
   clearCanvas: function() {
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
-  },
-  controls: function() {
-    document.onkeydown = function(e) {
-      var directions = ["left", "up", "right", "down"];
-      if (e.keyCode >= 37 && e.keyCode <= 40) {
-        game.snake.changeDirection(directions[e.keyCode - 37]);
-      }
-    }
   }
 };
 
@@ -63,6 +68,8 @@ var graphics = {
   }
 };
 
+
+human.initialize();
 game.initialize();
 setInterval(game.cycle, 75);
 
