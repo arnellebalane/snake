@@ -1,0 +1,26 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+#world {
+  position: absolute;
+}
+
+canvas {
+  display: block;
+  border: 10px solid #000000;
+  border-radius: 6px;
+}
+
+#dashboard a {
+  float: right;
+  width: 129px;
+  height: 45px;
+  text-indent: -1000px;
+  background-image: url("../images/google-play.jpg");
+  background-repeat: no-repeat;
+  background-size: auto 100%;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
