@@ -199,27 +199,27 @@ function Snake(length, head, direction) {
     }
   }
   this.up = function() {
-    this.move(this.segments[0].x, this.segments[0].y - 1);
+    return {x: this.segments[0].x, y: this.segments[0].y - 1};
   }
   this.left = function() {
-    this.move(this.segments[0].x - 1, this.segments[0].y);
+    return {x: this.segments[0].x - 1, y: this.segments[0].y};
   }
   this.right = function() {
-    this.move(this.segments[0].x + 1, this.segments[0].y);
+    return {x: this.segments[0].x + 1, y: this.segments[0].y};
   }
   this.down = function() {
-    this.move(this.segments[0].x, this.segments[0].y + 1);
+    return {x: this.segments[0].x, y: this.segments[0].y + 1};
   }
-  this.move = function(x, y) {
-    if (game.grid.walkable(x, y)) {
-      if (game.grid.hasFood(x, y)) {
+  this.move = function(cell) {
+    if (game.grid.walkable(cell.x, cell.y)) {
+      if (game.grid.hasFood(cell.x, cell.y)) {
         this.eat(x, y);
       }
       for (var i = this.segments.length - 1; i > 0; i--) {
         var nextSegment = this.segments[i - 1];
         this.segments[i].updatePosition(nextSegment.x, nextSegment.y);
       }
-      head.updatePosition(x, y);
+      head.updatePosition(cell.x, cell.y);
     }
   }
   this.eat = function(x, y) {
@@ -228,7 +228,7 @@ function Snake(length, head, direction) {
     game.food.choosePosition();
   }
   this.update = function() {
-    this[this.direction]();
+    this.move(this[this.direction]());
     if (this.unappliedSegments.length > 0) {
       var first = this.unappliedSegments[0];
       if (game.grid.walkable(first.x, first.y)) {
