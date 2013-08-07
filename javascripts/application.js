@@ -1,48 +1,72 @@
 var canvas = document.getElementById("canvas");
 var context = canvas.getContext("2d");
 
+var InitialSnakeLength = 5;
+
 var human = {
+  snake: null,
   initialize: function() {
-    human.controls();
+    human.initializeSnake();
+    human.initializeControls();
   },
-  controls: function() {
+  initializeSnake: function() {
+    var snakeHead = new Segment(5, Math.floor(game.grid.height / 2));
+    human.snake = new Snake(InitialSnakeLength, snakeHead, "right");
+  },
+  initializeControls: function() {
     document.onkeydown = function(e) {
       var directions = ["left", "up", "right", "down"];
       if (e.keyCode >= 37 && e.keyCode <= 40) {
-        game.snake.changeDirection(directions[e.keyCode - 37]);
+        human.snake.changeDirection(directions[e.keyCode - 37]);
       }
     }
+  },
+  cycle: function() {
+    human.snake.update().draw();
+  }
+};
+
+var computer = {
+  snake: null,
+  initialize: function() {
+    computer.initializeSnake();
+  },
+  initializeSnake: function() {
+    var snakeHead = new Segment(game.grid.width - 6, Math.floor(game.grid.height / 2));
+    computer.snake = new Snake(InitialSnakeLength, snakeHead, "left");
+  },
+  cycle: function() {
+    computer.snake.update().draw();
   }
 };
 
 var game = {
   grid: new Grid(20),
-  snake: null,
   food: null,
   initialize: function() {
-    game.readyCanvas();
-    game.readySnake();
-    game.readyFood();
+    game.initializeCanvas();
+
+    human.initialize();
+    computer.initialize();
+
+    game.initializeFood();
   },
-  readyCanvas: function() {
+  initializeCanvas: function() {
     var world = document.getElementById("world");
     canvas.width = game.grid.width * game.grid.cellDimension;
     canvas.height = game.grid.height * game.grid.cellDimension;
-    world.style.left = (window.innerWidth - canvas.width) / 2 - 10 + "px";
+    world.style.left = (window.innerWidth - parseInt(getComputedStyle(world)["width"])) / 2 + "px";
     world.style.top = (window.innerHeight - canvas.height) / 2 - 60 + "px";
   },
-  readySnake: function() {
-    var start = new Segment(5, Math.floor(game.grid.height / 2));
-    game.snake = new Snake(5, start, "right");
-  },
-  readyFood: function() {
-    this.food = new Food();
+  initializeFood: function() {
+    game.food = new Food();
   },
   cycle: function() {
     game.clearCanvas();
-    // game.grid.draw();
+    human.cycle();
+    computer.cycle();
+
     game.food.draw();
-    game.snake.update().draw();
   },
   clearCanvas: function() {
     context.fillStyle = "#ffffff";
@@ -51,27 +75,21 @@ var game = {
 };
 
 var graphics = {
-  drawLine: function(start, end) {
-    context.lineWidth = 1;
-    context.beginPath();
-    context.moveTo(start.x, start.y);
-    context.lineTo(end.x, end.y);
-    context.stroke();
-  },
-  drawCircle: function(center, radius) {
+  circle: function(center, radius) {
     context.beginPath();
     context.arc(center.x, center.y, radius, 2 * Math.PI, false);
-    context.fill();
+    return this;
   },
-  drawSquare: function(x, y, side) {
-    context.fillRect(x, y, side, side);
+  stroke: function() {
+    context.stroke();
+  },
+  fill: function() {
+    context.fill();
   }
-};
+}
 
-
-human.initialize();
 game.initialize();
-setInterval(game.cycle, 75);
+setInterval(game.cycle, 100);
 
 
 
@@ -87,174 +105,120 @@ function Grid(cellDimension) {
     for (var i = 0; i < this.height; i++) {
       this.cells[i] = [];
       for (var j = 0; j < this.width; j++) {
-        this.cells[i][j] = null;
+        this.cells[i][j] = new Cell(j, i, cellDimension);
       }
     }
+  } 
+  this.fill = function(x, y, fill) {
+    this.cells[y][x].content = fill;
   }
-  this.walkableCell = function(x, y) {
-    return x >= 0 && x < this.width && y >= 0 && y < this.height && this.cells[y][x] != "s";
+  this.clear = function(x, y) {
+    this.cells[y][x].clear();
   }
-  this.fillCell = function(x, y, fill) {
-    this.cells[y][x] = fill;
-  }
-  this.clearCell = function(x, y) {
-    this.cells[y][x] = null;
+  this.walkable = function(x, y) {
+    return x >= 0 && x < this.width && y >= 0 && y < this.height && this.cells[y][x].walkable();
   }
   this.hasFood = function(x, y) {
-    return this.cells[y][x] == "f";
-  }
-  this.draw = function() {
-    for (var i = 0; i < this.width; i++) {
-      var start = new Coordinate(i * this.cellDimension, 0);
-      var end = new Coordinate(i * this.cellDimension, canvas.height);
-      graphics.drawLine(start, end);
-    }
-    for (var i = 0; i < this.height; i++) {
-      var start = new Coordinate(0, i * this.cellDimension);
-      var end = new Coordinate(canvas.width, i * this.cellDimension);
-      context.strokeStyle = "#000000";
-      graphics.drawLine(start, end);
-    }
+    return this.cells[y][x].hasFood();
   }
 
   this.initialize();
 }
 
-function Coordinate(x, y) {
-  this.x = x;
-  this.y = y;
+function Cell(x, y, dimension) {
+  this.content = null;
+  this.parentCell = null;
+  this.distanceToStart = 0;
+  this.distanceToEnd = 0;
+  this.totalDistance = 0;
+  this.dimension = dimension;
+  this.position = new Coordinate(x * dimension, y * dimension);
+  this.middle = new Coordinate(x * dimension + dimension / 2, y * dimension + dimension / 2);
+
+  this.walkable = function() {
+    return this.content != "segment";
+  }
+  this.hasFood = function() {
+    return this.content == "food";
+  }
+  this.clear = function() {
+    this.content = null;
+  }
 }
 
-function Segment(x, y) {
-  this.x = null;
-  this.y = null;
-  this.position = null;
-
-  this.updatePosition = function(x, y) {
-    if (this.x != null && this.y != null) {
-      game.grid.clearCell(this.x, this.y);
-    }
-    this.x = x;
-    this.y = y;
-    var centerX = ((x * game.grid.cellDimension) + ((x + 1) * game.grid.cellDimension)) / 2;
-    var centerY = ((y * game.grid.cellDimension) + ((y + 1) * game.grid.cellDimension)) / 2;
-    this.position = new Coordinate(centerX, centerY);
-  }
-  this.draw = function() {
-    context.fillStyle = "#000000";
-    graphics.drawCircle(this.position, game.grid.cellDimension / 2);
-    // graphics.drawSquare(this.x * game.grid.cellDimension, this.y * game.grid.cellDimension, game.grid.cellDimension);
-  }
-
-  this.updatePosition(x, y);
-}
-
-function Snake(length, headSegment, moveDirection) {
+function Snake(length, head, direction) {
   this.segments = [];
-  this.moveDirection = moveDirection;
+  this.direction = direction;
   this.unappliedSegments = [];
-
+  
   this.initialize = function() {
-    this.segments.push(headSegment);
-    game.grid.fillCell(headSegment.x, headSegment.y, 1);
+    this.segments.push(head);
+    game.grid.fill(head.x, head.y, "segment");
     while (length-- > 1) {
       var last = this.segments[this.segments.length - 1];
-      var segment = new Segment(last.x - 1, last.y);
+      var segment = null;
+      if (direction == "up" && last.y + 1 < game.grid.height) {
+        segment = new Segment(last.x, last.y + 1);
+      } else if (direction == "left" && last.x + 1 < game.grid.width) {
+        segment = new Segment(last.x + 1, last.y);
+      } else if (direction == "right" && last.x - 1 >= 0) {
+        segment = new Segment(last.x - 1, last.y);
+      } else if (direction == "down" && last.y - 1 >= 0) {
+        segment = new Segment(last.x, last.y - 1);
+      } else {
+        break;
+      }
       this.segments.push(segment);
-      game.grid.fillCell(segment.x, segment.y, 1);
+      game.grid.fill(segment.x, segment.y, "segment");
     }
   }
   this.changeDirection = function(direction) {
-    if (!(this.moveDirection == "up" && direction == "down")
-        && !(this.moveDirection == "left" && direction == "right")
-        && !(this.moveDirection == "right" && direction == "left")
-        && !(this.moveDirection == "down" && direction == "up")) {
-      this.moveDirection = direction;
+    if (!(direction == "up" && this.direction == "down")
+        && !(direction == "left" && this.direction == "right")
+        && !(direction == "right" && this.direction == "left")
+        && !(direction == "down" && this.direction == "up")) {
+      this.direction = direction;
     }
   }
-  this.moveUp = function() {
-    var head = this.segments[0];
-    var newX = head.x;
-    var newY = head.y - 1;
-    if (game.grid.walkableCell(newX, newY)) {
-      if (game.grid.hasFood(newX, newY)) {
-        this.eat(newX, newY);
+  this.up = function() {
+    this.move(this.segments[0].x, this.segments[0].y - 1);
+  }
+  this.left = function() {
+    this.move(this.segments[0].x - 1, this.segments[0].y);
+  }
+  this.right = function() {
+    this.move(this.segments[0].x + 1, this.segments[0].y);
+  }
+  this.down = function() {
+    this.move(this.segments[0].x, this.segments[0].y + 1);
+  }
+  this.move = function(x, y) {
+    if (game.grid.walkable(x, y)) {
+      if (game.grid.hasFood(x, y)) {
+        this.eat(x, y);
       }
       for (var i = this.segments.length - 1; i > 0; i--) {
         var nextSegment = this.segments[i - 1];
         this.segments[i].updatePosition(nextSegment.x, nextSegment.y);
       }
-      head.updatePosition(newX, newY);
-    }
-  }
-  this.moveLeft = function() {
-    var head = this.segments[0];
-    var newX = head.x - 1;
-    var newY = head.y;
-    if (game.grid.walkableCell(newX, newY)) {
-      if (game.grid.hasFood(newX, newY)) {
-        this.eat(newX, newY);
-      }
-      for (var i = this.segments.length - 1; i > 0; i--) {
-        var nextSegment = this.segments[i - 1];
-        this.segments[i].updatePosition(nextSegment.x, nextSegment.y);
-      }
-      head.updatePosition(newX, newY);
-    }
-  }
-  this.moveRight = function() {
-    var head = this.segments[0];
-    var newX = head.x + 1;
-    var newY = head.y;
-    if (game.grid.walkableCell(newX, newY)) {
-      if (game.grid.hasFood(newX, newY)) {
-        this.eat(newX, newY);
-      }
-      for (var i = this.segments.length - 1; i > 0; i--) {
-        var nextSegment = this.segments[i - 1];
-        this.segments[i].updatePosition(nextSegment.x, nextSegment.y);
-      }
-      head.updatePosition(newX, newY);
-    }
-  }
-  this.moveDown = function() {
-    var head = this.segments[0];
-    var newX = head.x;
-    var newY = head.y + 1;
-    if (game.grid.walkableCell(newX, newY)) {
-      if (game.grid.hasFood(newX, newY)) {
-        this.eat(newX, newY);
-      }
-      for (var i = this.segments.length - 1; i > 0; i--) {
-        var nextSegment = this.segments[i - 1];
-        this.segments[i].updatePosition(nextSegment.x, nextSegment.y);
-      }
-      head.updatePosition(newX, newY);
+      head.updatePosition(x, y);
     }
   }
   this.eat = function(x, y) {
     this.unappliedSegments.push(new Segment(game.food.x, game.food.y));
-    game.grid.clearCell(x, y);
+    game.grid.clear(x, y);
     game.food.choosePosition();
   }
   this.update = function() {
-    if (this.moveDirection == "up") {
-      this.moveUp();
-    } else if (this.moveDirection == "left") {
-      this.moveLeft();
-    } else if (this.moveDirection == "right") {
-      this.moveRight();
-    } else if (this.moveDirection == "down") {
-      this.moveDown();
-    }
+    this[this.direction]();
     if (this.unappliedSegments.length > 0) {
       var first = this.unappliedSegments[0];
-      if (game.grid.walkableCell(first.x, first.y)) {
+      if (game.grid.walkable(first.x, first.y)) {
         this.segments.push(this.unappliedSegments.shift());
       }
     }
     for (var i = 0; i < this.segments.length; i++) {
-      game.grid.fillCell(this.segments[i].x, this.segments[i].y, "s");
+      game.grid.fill(this.segments[i].x, this.segments[i].y, "segment");
     }
     return this;
   }
@@ -268,25 +232,49 @@ function Snake(length, headSegment, moveDirection) {
   this.initialize();
 }
 
+function Segment(x, y) {
+  this.x = null;
+  this.y = null;
+  this.cell = null;
+
+  this.updatePosition = function(x, y) {
+    if (this.x != null && this.y != null) {
+      game.grid.clear(this.x, this.y);
+    }
+    this.x = x;
+    this.y = y;
+    this.cell = game.grid.cells[y][x];
+  }
+  this.draw = function() {
+    context.fillStyle = "#000000";
+    graphics.circle(this.cell.middle, this.cell.dimension / 2).fill();
+  }
+
+  this.updatePosition(x, y);
+}
+
 function Food() {
   this.x = null;
   this.y = null;
-  this.position = null;
+  this.cell = null;
 
   this.choosePosition = function() {
     do {
       this.x = Math.floor(Math.random() * game.grid.width);
       this.y = Math.floor(Math.random() * game.grid.height);
-    } while (!game.grid.walkableCell(this.x, this.y));
-    var centerX = ((this.x * game.grid.cellDimension) + ((this.x + 1) * game.grid.cellDimension)) / 2;
-    var centerY = ((this.y * game.grid.cellDimension) + ((this.y + 1) * game.grid.cellDimension)) / 2;
-    this.position = new Coordinate(centerX, centerY);
-    game.grid.fillCell(this.x, this.y, "f");
+    } while (!game.grid.walkable(this.x, this.y));
+    this.cell = game.grid.cells[this.y][this.x];
+    game.grid.fill(this.x, this.y, "food");
   }
   this.draw = function() {
     context.fillStyle = "#aa0000";
-    graphics.drawCircle(this.position, game.grid.cellDimension / 2);
+    graphics.circle(this.cell.middle, this.cell.dimension / 2).fill();
   }
 
   this.choosePosition();
+}
+
+function Coordinate(x, y) {
+  this.x = x;
+  this.y = y;
 }
