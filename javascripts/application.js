@@ -22,7 +22,7 @@ var human = {
     }
   },
   cycle: function() {
-    // human.snake.update().draw();
+    human.snake.update().draw();
   }
 };
 
@@ -213,7 +213,7 @@ function Snake(length, head, direction) {
   this.move = function(cell) {
     if (game.grid.walkable(cell.x, cell.y)) {
       if (game.grid.hasFood(cell.x, cell.y)) {
-        this.eat(x, y);
+        this.eat(cell.x, cell.y);
       }
       for (var i = this.segments.length - 1; i > 0; i--) {
         var nextSegment = this.segments[i - 1];
