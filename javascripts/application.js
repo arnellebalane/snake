@@ -22,12 +22,13 @@ var human = {
     }
   },
   cycle: function() {
-    human.snake.update().draw();
+    // human.snake.update().draw();
   }
 };
 
 var computer = {
   snake: null,
+  path: [],
   initialize: function() {
     computer.initializeSnake();
   },
@@ -36,7 +37,24 @@ var computer = {
     computer.snake = new Snake(InitialSnakeLength, snakeHead, "left");
   },
   cycle: function() {
+    while (computer.path.length == 0) {
+      computer.findPath();
+    }
+    computer.snake.changeDirection(computer.path.shift());
     computer.snake.update().draw();
+  },
+  findPath: function() {
+    var directions = ["up", "left", "right", "down"];
+    for (var i = 0; i < 10; i++) {
+      var direction = directions[Math.floor(Math.random() * 4)];
+      var snakeHead = computer.snake.segments[0];
+      if ((direction == "up" && computer.snake.direction != "down" && game.grid.walkable(snakeHead.x, snakeHead.y - 1))
+          || (direction == "left" && computer.snake.direction != "right" && game.grid.walkable(snakeHead.x - 1, snakeHead.y))
+          || (direction == "right" && computer.snake.direction != "left" && game.grid.walkable(snakeHead.x + 1, snakeHead.y))
+          || (direction == "down" && computer.snake.direction != "up" && game.grid.walkable(snakeHead.x, snakeHead.y + 1))) {
+        this.path.push(direction);
+      }
+    }
   }
 };
 
